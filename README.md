@@ -42,7 +42,7 @@ Dependencies:
 
 See src/main.ts to figure out controls for saveload, or change them. Similar to okesl.
 
-### Controlskirajzol320
+### Controls
 
 * up: gas
 * down: brake

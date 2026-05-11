@@ -79,6 +79,12 @@ When paused:
 * left/right: adjust input event frame
 
 
+## Developing
+
+You should `export LD_LIBRARY_PATH="./elma/build/"`
+
+Or run any command via `manage.sh` i.e. `./manage.sh [your shell command]`
+
 
 ## License
 

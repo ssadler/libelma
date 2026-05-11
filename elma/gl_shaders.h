@@ -4,7 +4,7 @@
 
 #include "main.h"
 #include "gl_common.h"
-#include <glad/glad.h>
+#include <memory>
 #include <tuple>
 #include <string>
 #include <vector>
@@ -13,6 +13,42 @@
 #include <functional>
 #include <format>
 #include <map>
+
+
+class GlRingBuffer {
+  int stride;
+  int buftype;
+  int max_verts;
+  int offset = 0;
+
+  public:
+  GLuint vbo;
+
+  GlRingBuffer(int _buftype, int _stride, int _max_verts)
+    : GlRingBuffer(
+        _buftype, _stride, _max_verts,
+        []{ GLuint vbo; glGenBuffers(1, &vbo); return vbo; }()
+      ) {}
+
+  GlRingBuffer(int _buftype, int _stride, int _max_verts, GLuint _vbo)
+    : stride(_stride), buftype(_buftype), max_verts(_max_verts), vbo(_vbo) {
+    glBindBuffer(buftype, vbo);
+    glBufferData(buftype, max_verts * 3 * stride, nullptr, GL_STREAM_DRAW);
+  }
+
+  void push_data(int num_verts, void* ptr) {
+    if (num_verts > max_verts) {
+      internal_error("GlRingBuffer::push_data: num_verts > max_verts");
+    }
+    auto size = num_verts * stride;
+    if (offset + size > max_verts * stride * 3) {
+      offset = 0;
+    }
+    glBindBuffer(buftype, vbo);
+    glBufferSubData(buftype, offset, size, ptr);
+  }
+};
+
 
 
 struct GLVertexAttributePointer {
@@ -31,6 +67,9 @@ class GlManaged {
   std::vector<std::function<void()>> draw_cbs;
   std::map<GLuint, std::function<void(GLuint idx)>> persistant_uniforms;
   std::map<GLenum, unsigned long> textures;
+  GlRingBuffer* ring_buf = nullptr;
+  int _ring_buffer_max_verts = 0;
+  int _ring_buffer_offset = 0;
 
   
   public:
@@ -44,6 +83,7 @@ class GlManaged {
     ~GlManaged() {
       glDeleteBuffers(1, &vbo);
       glDeleteVertexArrays(1, &vao);
+      delete ring_buf;
     }
     
     /*
@@ -80,6 +120,12 @@ class GlManaged {
       if (!vao) {
         internal_error("GlManaged::buffer_data: compile first");
       }
+      if (_ring_buffer_max_verts) {
+        internal_error("GlManaged::buffer_data: ring enabled, use push_data");
+      }
+
+      glBindVertexArray(vao);
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
       glBindVertexArray(vao);
       glBindBuffer(GL_ARRAY_BUFFER, vbo);
       glBufferData(GL_ARRAY_BUFFER, num_verts * get_stride(), ptr, usage);
@@ -92,6 +138,7 @@ class GlManaged {
       glBufferSubData(GL_ARRAY_BUFFER, offset, num_verts * get_stride(), ptr);
     }
 
+
     // call: map_buffer_range<float>(0, n_verts, [](float* ptr) { ...
     template <typename T, typename F>
     void map_buffer_range(int offset, int num_verts,
@@ -103,6 +150,20 @@ class GlManaged {
         cb(ptr);
         glUnmapBuffer(GL_ARRAY_BUFFER);
       }
+    }
+
+    void enable_ring(int max_verts) {
+      ring_buf = new GlRingBuffer(GL_ARRAY_BUFFER, get_stride(), max_verts, vbo);
+      //_ring_buffer_max_verts = max_verts;
+      ////glBindVertexArray(vao);
+      //glBindBuffer(GL_ARRAY_BUFFER, vbo);
+      //glBufferData(GL_ARRAY_BUFFER, max_verts * 3 * get_stride(), nullptr, GL_STREAM_DRAW);
+    }
+    void push_data(int num_verts, void* ptr) {
+      if (!ring_buf) {
+        internal_error("GlManaged::push_data: ring not enabled");
+      }
+      ring_buf->push_data(num_verts, ptr);
     }
 
     void set_texture(GLenum slot, GLuint texture) {

@@ -3013,7 +3013,7 @@ Ze.glob = Ze;
 
 // src/main.ts
 var import_fs2 = __toESM(require("fs"));
-var FPS = 800;
+var FPS = 450;
 async function main() {
   process2.chdir(process2.env.ELMA_DIR);
   let args = process2.argv.slice(2);

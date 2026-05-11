@@ -4,6 +4,7 @@
 #include "gl_common.h"
 #include "gl_canvas.h"
 #include "fonts.h"
+#include "gl_shaders.h"
 #include "main.h"
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_ONLY_PNG
@@ -11,7 +12,7 @@
 #include "include/stb_image.h"
 
 
-constexpr size_t MAX_CHARS = 1024;
+#define MAX_CHARS 1024l
 
 
 bool IsRenderCallback = false;
@@ -22,6 +23,7 @@ GLuint triangleVAO, triangleVBO;
 GLuint FontShaderProgram = 0;
 GLuint textVAO, textVBO;
 
+GlRingBuffer* TextBuf = nullptr;
 
 
 int gl_init_tas_shader() {
@@ -30,9 +32,12 @@ int gl_init_tas_shader() {
     // vertex
     #version 410 core
     layout (location = 2) in vec2 position;
+    uniform vec4 Pos;
 
     void main() {
-        gl_Position = vec4(position, 0.0, 1.0);
+      vec2 p = position * Pos.zw + Pos.xy;
+      p = vec2(p.x * 2.0 - 1.0, 1.0 - p.y * 2.0);
+      gl_Position = vec4(p, 0.0, 1.0);
     }
     )";
 
@@ -58,13 +63,11 @@ int gl_init_tas_shader() {
     glBindVertexArray(triangleVAO);
     glBindBuffer(GL_ARRAY_BUFFER, triangleVBO);
 
-    // allocate buffer, but don't upload data yet (or upload dummy)
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12, nullptr, GL_DYNAMIC_DRAW);
-
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
 
-
+    float quad[] = { 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1 };
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 12, quad, GL_STATIC_DRAW);
 
     return 0;
 }
@@ -98,6 +101,7 @@ void get_uv(char c, float &u0, float &v0, float &u1, float &v1) {
     v1 = 1.0f / 7.0f * y;
 }
 
+static std::array<float, 4> TasText[MAX_CHARS * 6];
 
 void draw_text(float x, float y, float w, float h, const char* text) {
 
@@ -109,14 +113,6 @@ void draw_text(float x, float y, float w, float h, const char* text) {
 
   size_t off = 0;
 
-  size_t size = sizeof(float) * 24 * strlen(text);
-
-  glBindBuffer(GL_ARRAY_BUFFER, textVBO);
-  float* ptr = (float*)glMapBufferRange(
-      GL_ARRAY_BUFFER, 0, size, GL_MAP_WRITE_BIT | GL_MAP_INVALIDATE_RANGE_BIT
-  );
-
-
   for (int i = 0; !(i > 0 && !text[i]); i++) {
 
     char c = text[i];
@@ -127,24 +123,19 @@ void draw_text(float x, float y, float w, float h, const char* text) {
 
       //h = h / FrameHeight * FrameWidth;
 
-      float verts[] = {
-          // pos      uv
-          x,     y,   u0, v0,
-          x+w,   y,   u1, v0,
-          x+w,   y-h, u1, v1,
-
-          x,     y,   u0, v0,
-          x+w,   y-h, u1, v1,
-          x,     y-h, u0, v1,
-      };
-
-      std::memcpy(&ptr[off++ * 24], verts, sizeof(float) * 24);
+      //               pos       uv
+      TasText[off++] = { x,   y,   u0, v0};
+      TasText[off++] = { x+w, y,   u1, v0};
+      TasText[off++] = { x+w, y-h, u1, v1};
+      TasText[off++] = { x,   y,   u0, v0};
+      TasText[off++] = { x+w, y-h, u1, v1};
+      TasText[off++] = { x,   y-h, u0, v1};
     }
     x += w;
   }
 
-  glUnmapBuffer(GL_ARRAY_BUFFER);
-  glDrawArrays(GL_TRIANGLES, 0, 6 * off);
+  TextBuf->push_data(off, TasText);
+  glDrawArrays(GL_TRIANGLES, 0, off);
 }
 
 static int gl_init_tas_font() {
@@ -214,7 +205,8 @@ static int gl_init_tas_font() {
     glBindVertexArray(textVAO);
     glBindBuffer(GL_ARRAY_BUFFER, textVBO);
 
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 24 * MAX_CHARS, nullptr, GL_DYNAMIC_DRAW);
+    //glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 24 * MAX_CHARS, nullptr, GL_STREAM_DRAW);
+    TextBuf = new GlRingBuffer(GL_ARRAY_BUFFER, 4*sizeof(float), MAX_CHARS * 6);
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4*sizeof(float), (void*)0);
@@ -241,8 +233,8 @@ void gl_render_box(float r, float g, float b, float a, int x, int y, int rows, i
 
   int w = cols * char_width + paddingX * 2;
   int h = rows * char_height + paddingY * 2;
-  if (cols) w -= char_width / 6;
-  if (rows) h -= char_height / 3;
+  if (cols) { w -= char_width / 6; }
+  if (rows) { h -= char_height / 3; }
 
   if (x < 0) {
     x = FrameWidth - w + x;
@@ -253,24 +245,17 @@ void gl_render_box(float r, float g, float b, float a, int x, int y, int rows, i
   float x1 = -1.0 + (((float)x+w) / FrameWidth * 2.0);
   float y1 = 1.0 - (((float)y+h) / FrameHeight * 2.0);
 
-  float quad[] = {
-     x0, y0,
-     x1, y0,
-     x1, y1,
-     x0, y0,
-     x1, y1,
-     x0, y1
-  };
-
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   glUseProgram(BoxShaderProgram);
   glUniform4f(glGetUniformLocation(BoxShaderProgram, "Color"), r, g, b, a);
+  glUniform4f(
+    glGetUniformLocation(BoxShaderProgram, "Pos"),
+    (float)x / FrameWidth, (float)y / FrameHeight, (float)w / FrameWidth, (float)h / FrameHeight
+  );
 
   glBindVertexArray(triangleVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, triangleVBO);
-  glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(quad), quad);
 
   glDrawArrays(GL_TRIANGLES, 0, 6);
 }

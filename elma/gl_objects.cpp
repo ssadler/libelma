@@ -188,7 +188,8 @@ static GLuint upload_anim(anim* a) {
 
 unsigned short foods[256*6*2];
 
-GLuint FoodIndicesBuffer = 0;
+
+GlRingBuffer* FoodIndicesBuffer = nullptr;
 
 void gl_render_objects(float* frustrum, float t) {
 
@@ -203,7 +204,7 @@ void gl_render_objects(float* frustrum, float t) {
 
 
   if (FoodIndicesBuffer == 0) {
-    glGenBuffers(1, &FoodIndicesBuffer);
+    FoodIndicesBuffer = new GlRingBuffer(GL_ELEMENT_ARRAY_BUFFER, 2, 256*6);
   }
 
   // Make a list of food to render
@@ -225,8 +226,9 @@ void gl_render_objects(float* frustrum, float t) {
     tot += 4;
   }
 
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, FoodIndicesBuffer);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, n, foods, GL_DYNAMIC_DRAW);
+  FoodIndicesBuffer->push_data(n, foods);
+  //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, FoodIndicesBuffer);
+  //glBufferData(GL_ELEMENT_ARRAY_BUFFER, n, foods, GL_STREAM_DRAW);
 
   FoodShader->uniform1f("iTime", t);
   FoodShader->draw_indexed(n, GL_UNSIGNED_SHORT, foods);

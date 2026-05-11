@@ -6,7 +6,7 @@ import * as process from 'process'
 import { globSync } from 'glob'
 
 
-const FPS = 400
+const FPS = 450
 
 
 async function main() {

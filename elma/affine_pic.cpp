@@ -34,6 +34,7 @@ affine_pic::affine_pic(const char* filename, pic8* pic) {
 
     pixels_orig = new unsigned char[height * width];
     memcpy(pixels_orig, pic->pixels, height * width);
+    pic_orig = pic->clone();
 
     delete pic;
 }

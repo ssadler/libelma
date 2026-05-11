@@ -5,47 +5,9 @@
 
 #include <glad/glad.h>
 #include <cstring>
+#include <memory>
 
-//void (*gl_render_callback)() = nullptr;
-//
-//
-//static const char* VertexShaderSource = R"(
-//#version 410 core
-//layout (location = 0) in vec2 position;
-//layout (location = 1) in vec2 texCoord;
-//out vec2 fragTexCoord;
-//
-//void main() {
-//    gl_Position = vec4(position, 0.0, 1.0);
-//    fragTexCoord = texCoord;
-//}
-//)";
-//
-//static const char* FragmentShaderSource = R"(
-//#version 410 core
-//in vec2 fragTexCoord;
-//out vec4 FragColor;
-//uniform sampler2D IndexTexture;
-//uniform sampler1D PaletteTexture;
-//
-//void main() {
-//    float index = texture(IndexTexture, fragTexCoord).r;
-//    FragColor = texture(PaletteTexture, index);
-//}
-//)";
-//
-//static SDL_GLContext GLContext = nullptr;
-//static int FrameWidth = 0;
-//static int FrameHeight = 0;
-//static GLuint VAO = 0;
-//static GLuint VBO = 0;
-//static GLuint IndexTexture = 0;
-//static GLuint PaletteTexture = 0;
-//static GLuint ShaderProgram = 0;
-//static GLuint ShaderProgram2 = 0;
-//static GLuint PBO = 0;
-//static GLint IndexTexLoc = -1;
-//static GLint PaletteTexLoc = -1;
+
 
 static GLuint compile_shader(GLenum type, const char* source) {
     GLuint shader = glCreateShader(type);
@@ -101,6 +63,7 @@ GLuint upload_pcx8(unsigned char* pixels, int width, int height) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R8,
                width, height, 0,
                GL_RED, GL_UNSIGNED_BYTE,
@@ -118,6 +81,7 @@ GLuint upload_rgba(unsigned char* pixels, int width, int height) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
                width, height, 0,
                GL_RGBA, GL_UNSIGNED_BYTE,
@@ -126,7 +90,14 @@ GLuint upload_rgba(unsigned char* pixels, int width, int height) {
 }
 
 GLuint upload_affine_texture(affine_pic* pic) {
-  return upload_pcx8(pic->pixels_orig, pic->width, pic->height-2);
+  auto buf = std::make_unique<unsigned char[]>(pic->width * pic->height);
+
+  for (int i=0; i<pic->height; i++) {
+    auto row = pic->pic_orig->get_row(i);
+    memcpy(&buf[i*pic->width], row, pic->width);
+  }
+
+  return upload_pcx8(buf.get(), pic->width, pic->height);
 }
 
 

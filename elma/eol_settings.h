@@ -62,7 +62,7 @@ class eol_settings {
     Default<MapAlignment> map_alignment_{MapAlignment::None};
     Default<RendererType> renderer_{RendererType::Software};
     Default<FullscreenMode> fullscreen_{FullscreenMode::Windowed};
-    Clamp<double> zoom_{0.025, 1.0, 9.0};
+    Clamp<double> zoom_{0.025, 1.0, 27.0};
     Clamp<double> minimap_zoom_{0.25, 1.0, 3.0};
     Default<bool> zoom_textures_{true};
     Default<bool> zoom_grass_{true};

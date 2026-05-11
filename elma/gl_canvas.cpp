@@ -28,9 +28,13 @@ template <> struct nth<1, vect2> { inline static auto get(const vect2 &t) { retu
 
 GLCanvas* GL_Canvas = nullptr;
 
-std::vector<std::vector<float>> mergeAndSort(     
+
+void mergeAndSort(     
     const std::vector<std::vector<float>>& ground,
-    const std::vector<std::vector<float>>& sky);
+    const std::vector<std::vector<float>>& sky,
+    std::vector<float>& verts_out,
+    std::vector<unsigned int>& offsets_out
+);
 
 
 GLCanvas::GLCanvas() {
@@ -72,7 +76,7 @@ GLCanvas::GLCanvas() {
         }
     }
 
-    merged = mergeAndSort(ground, sky);
+    mergeAndSort(ground, sky, merged_verts, merged_offsets);
 }
 
 void GLCanvas::setup() {
@@ -90,7 +94,7 @@ void GLCanvas::setup() {
 void gl_canvas_render();
 void gl_canvas_render_combined(int ground_mask, int sky_mask);
 
-static GLuint UBO;
+static GlRingBuffer* UBOBuffer;
 static canvas_ubo0 CanvasUBO;
 bool init = false;
 
@@ -98,11 +102,8 @@ void GLCanvas::render(double t, motorst* pmot, valtozok* metadata, vect2 corner,
 
   if (!init) {
     init = true;
-    glGenBuffers(1, &UBO);
-    glBindBuffer(GL_UNIFORM_BUFFER, UBO);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(CanvasUBO), nullptr, GL_DYNAMIC_DRAW);
-    glBindBufferBase(GL_UNIFORM_BUFFER, 0, UBO); 
-    //glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    UBOBuffer = new GlRingBuffer(GL_UNIFORM_BUFFER, sizeof(CanvasUBO), 1);
+    glBindBufferBase(GL_UNIFORM_BUFFER, 0, UBOBuffer->vbo); 
   }
 
 
@@ -119,11 +120,11 @@ void GLCanvas::render(double t, motorst* pmot, valtozok* metadata, vect2 corner,
     for (auto i=0; i<4; i++) {
       CanvasUBO.frustrum[i] = floor(CanvasUBO.frustrum[i] * MetersToPixels) * PixelsToMeters;
     }
-    glBindBuffer(GL_UNIFORM_BUFFER, UBO);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(CanvasUBO), &CanvasUBO);
+
+    UBOBuffer->push_data(1, &CanvasUBO);
   }
 
-glEnable( GL_LINE_SMOOTH );
+//glEnable( GL_LINE_SMOOTH );
 //glEnable( GL_POLYGON_SMOOTH );
 //glHint( GL_LINE_SMOOTH_HINT, GL_NICEST );
 //glHint( GL_POLYGON_SMOOTH_HINT, GL_NICEST );
@@ -269,40 +270,35 @@ int gl_canvas_init() {
   ShaderBack->set_fragment_shader(frag);
   ShaderBack->add_input_floats(2, GL_FALSE);
   ShaderBack->compile();
-
-  ShaderBack->buffer_data(6, nullptr, GL_DYNAMIC_DRAW);
-
   ShaderBack->persist_uniform1i("IndexTexture", 0);
   ShaderBack->persist_uniform1i("PaletteTexture", 1);
-
   ShaderBack->set_texture(GL_TEXTURE1, PaletteTexture);
-  ShaderBack->set_texture(GL_TEXTURE0, TexForeground);
 
+  // take clones
+  ShaderFront = ShaderBack->clone();
+  ShaderSky = ShaderBack->clone();
+
+  // shader back specific
+  ShaderBack->enable_ring(6);
+  ShaderBack->set_texture(GL_TEXTURE0, TexForeground);
   ShaderBack->persist_uniform2f(
     "texSize",
     Lgr->foreground->get_width() / MetersToPixels,
     Lgr->foreground->get_height() / MetersToPixels
   );
 
-  ShaderFront = ShaderBack->clone();
-  ShaderFront->buffer_data(GL_Canvas->ground_n_verts, nullptr, GL_STATIC_DRAW);
-  ShaderFront->map_buffer_range<float>(0, GL_Canvas->ground_n_verts, [](float* ptr) {
-    for (auto& v : GL_Canvas->ground) {
-      std::memcpy(ptr, v.data(), v.size() * sizeof(float));
-      ptr += v.size();
-    }
-  }, GL_MAP_WRITE_BIT);
 
+  auto& verts = GL_Canvas->merged_verts;
 
-  ShaderSky = ShaderBack->clone();
-  ShaderSky->buffer_data(GL_Canvas->sky_n_verts, nullptr, GL_STATIC_DRAW);
-  ShaderSky->map_buffer_range<float>(0, GL_Canvas->sky_n_verts, [](float* ptr) {
-    for (auto& v : GL_Canvas->sky) {
-      std::memcpy(ptr, v.data(), v.size() * sizeof(float));
-      ptr += v.size();
-    }
-  }, GL_MAP_WRITE_BIT);
+  ShaderFront->buffer_data(verts.size()>>1, verts.data(), GL_STATIC_DRAW);
+  ShaderFront->set_texture(GL_TEXTURE0, TexForeground);
+  ShaderFront->persist_uniform2f(
+    "texSize",
+    Lgr->foreground->get_width() / MetersToPixels,
+    Lgr->foreground->get_height() / MetersToPixels
+  );
 
+  ShaderSky->buffer_data(verts.size()>>1, verts.data(), GL_STATIC_DRAW);
   ShaderSky->set_texture(GL_TEXTURE0, TexBackground);
   ShaderSky->persist_uniform2f(
     "texSize",
@@ -319,53 +315,43 @@ int gl_canvas_init() {
 }
 
 
-void gl_canvas_render_back(float* frustrum) {
-  // fill with ground
-
-
-  float quad[] = {
-     frustrum[0], -frustrum[1],
-     frustrum[2], -frustrum[1],
-     frustrum[2], -frustrum[3],
-     frustrum[0], -frustrum[1],
-     frustrum[2], -frustrum[3],
-     frustrum[0], -frustrum[3]
-  };
-
-  ShaderBack->use();
-  ShaderBack->buffer_data(6, quad, GL_DYNAMIC_DRAW);
-  ShaderBack->draw(0, 6);
-}
-
-
-void gl_canvas_render_sky() {
-  ShaderSky->draw(0, GL_Canvas->sky_n_verts);
-}
-
-void gl_canvas_render_fore() {
-  ShaderFront->draw(0, GL_Canvas->ground_n_verts);
-}
-
 
 void gl_canvas_render_combined(int ground_mask, int sky_mask) {
 
   glStencilFunc(GL_ALWAYS, ground_mask, 0xFF);                    
-  gl_canvas_render_back(CanvasUBO.frustrum);
 
-  for (auto& v : GL_Canvas->merged) {
-    float ii = v.back();
-    auto n_verts = v.size()>>1;
+  float quad[] = {
+     CanvasUBO.frustrum[0], -CanvasUBO.frustrum[1],
+     CanvasUBO.frustrum[2], -CanvasUBO.frustrum[1],
+     CanvasUBO.frustrum[2], -CanvasUBO.frustrum[3],
+     CanvasUBO.frustrum[0], -CanvasUBO.frustrum[1],
+     CanvasUBO.frustrum[2], -CanvasUBO.frustrum[3],
+     CanvasUBO.frustrum[0], -CanvasUBO.frustrum[3]
+  };
 
-    if (ii >= 1000000) {
-      ii -= 1000000;
-      glStencilFunc(GL_ALWAYS, sky_mask, 0xFF);                    
-      ShaderSky->sub_data(0, v.size()>>1, v.data()); //, int num_verts, void *ptr)
-      ShaderSky->draw(0, n_verts);
-    } else {
-      glStencilFunc(GL_ALWAYS, ground_mask, 0xFF);                    
-      ShaderFront->sub_data(0, v.size()>>1, v.data()); //, int num_verts, void *ptr)
-      ShaderFront->draw(0, n_verts);
+  ShaderBack->use();
+  ShaderBack->push_data(6, quad);
+  ShaderBack->draw(0, 6);
+
+
+
+  int offset = 0;
+
+  for (auto n : GL_Canvas->merged_offsets) {
+
+    auto mask = ground_mask;
+    auto shader = ShaderFront;
+
+    if (n & 0x80000000) {
+      shader = ShaderSky;
+      mask = sky_mask;
+      n &= 0x7fffffff;
     }
+
+    glStencilFunc(GL_ALWAYS, mask, 0xFF);                    
+    shader->use();
+    shader->draw(offset, n);
+    offset += n;
   }
 }
 
@@ -401,18 +387,21 @@ static float polygonAreaFromTriangles(const std::vector<float>& poly)
 }
 
 
-std::vector<std::vector<float>> mergeAndSort(
-    const std::vector<std::vector<float>>& ground,
-    const std::vector<std::vector<float>>& sky)
-{
+// render 0..3
+
+
+void mergeAndSort(
+  const std::vector<std::vector<float>>& ground,
+  const std::vector<std::vector<float>>& sky,
+  std::vector<float>& verts_out,
+  std::vector<unsigned int>& offsets_out
+) {
     std::vector<std::vector<float>> all;
     all.reserve(ground.size() + sky.size());
-    //printf("%i, %i\n", ground.size(), sky.size());
 
     all.insert(all.end(), ground.begin(), ground.end());
     all.insert(all.end(), sky.begin(), sky.end());
     for (int i=0; i<all.size(); i++) {
-      //printf("%i, %i, %f\n", ground.size(), i-ground.size(), -((i-ground.size()+1)));
       all[i].push_back(i < ground.size() ? i : i+1000000);
     }
 
@@ -422,5 +411,30 @@ std::vector<std::vector<float>> mergeAndSort(
             return polygonAreaFromTriangles(a) > polygonAreaFromTriangles(b);
         });
 
-    return all;
+    int last_is_sky = -1;
+    int pushed = 0;
+
+    int i = 0;
+    std::vector<float>* v = nullptr;
+
+    for (; i<all.size(); i++) {
+      v = &all[i];
+
+      bool is_sky = v->back() >= 1000000;
+      if (last_is_sky == -1) {
+        last_is_sky = is_sky;
+      } else if (last_is_sky != is_sky) {
+        offsets_out.push_back(pushed | (last_is_sky*0x80000000));
+        last_is_sky = is_sky;
+        pushed = 0;
+      }
+
+      verts_out.insert(verts_out.end(), v->begin(), v->end()-1);
+      pushed += v->size()>>1;
+    }
+    
+    if (pushed > 0) {
+      offsets_out.push_back(pushed | (last_is_sky*0x80000000));
+      verts_out.insert(verts_out.end(), v->begin(), v->end()-1);
+    }
 }

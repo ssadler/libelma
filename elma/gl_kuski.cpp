@@ -1,4 +1,5 @@
 
+#include "affine_pic.h"
 #include "gl_canvas.h"
 #include "gl_common.h"
 #include "lgr.h"
@@ -6,6 +7,8 @@
 #include "LEJATSZO.H"
 #include <glad/glad.h>
 #include <cmath>
+#include <iterator>
+#include <string>
 
 
 static GLuint KuskiShaderProgram;
@@ -72,6 +75,8 @@ int gl_init_kuski() {
       FragColor = texture(PaletteTexture, index);
       if (FragColor.rgb == vec3(1.0, 1.0, 0.0)) {
         FragColor = vec4(0.0);
+      //} else if (FragColor.rgb == vec3(0.0)) {
+      //  FragColor = vec4(0.0);
       } else if (shadowColor.a != 0.0) {
         FragColor = shadowColor;
       } else {
@@ -150,6 +155,11 @@ static void render_part(vect2 u, vect2 v, vect2 r) {
     v = v - delta;
   }
 
+  //float mat3[9] = {
+  //  float(2), float(0), 0.0f,
+  //  float(0), float(2), 0.0f,
+  //  float(0), float(0), 1.0f
+  //};
   float mat3[9] = {
     float(u.x), float(u.y), 0.0f,
     float(v.x), float(v.y), 0.0f,

@@ -19,7 +19,8 @@ class GLCanvas {
     std::vector<std::vector<float>> grass;
     size_t grass_n_verts = 0;
 
-    std::vector<std::vector<float>> merged;
+    std::vector<float> merged_verts;
+    std::vector<unsigned int> merged_offsets;
     
 
     GLCanvas();

@@ -1,0 +1,87 @@
+* Version 1.4
+
+## Major Features
+* Polygons no longer have a per-polygon max vertex count. There is now only a maximum total vertex count for the entire level.
+* Steam elma.res is supported
+* Elma now honors the local keyboard layout for text input instead of being forced to US qwerty layout
+* QGRASS texture is available in internal editor
+* Replays: maximum duration increased from 1 hour to about 828 days.
+* Add support for LGR13
+* Add setting to properly scale grass with zoom
+* There is now navigation to "Level replays" after playing a level to view replays in that level
+* There is now navigation to "Merge with" after playing a level to merge last run with replays in that level
+
+## Major Bug Fixes
+* It is possible to properly collect more than 200 apples in a single frame
+* Wheel turning the wrong way in replays is fixed (glitch starts at 455 speed instead of 124 speed, where max gas speed is approximately 220)
+* Fix crash related to "too complicated" (too large) mask and too large picture in lgr
+* Fix Uphill Battle bug where very wide grass polygons are not rendered properly at high zoom
+
+## Minor Features
+* Improve picture loading speed by allocating all needed memory at once instead of allocating in blocks of 64 KB (DOS-era restriction)
+* Error messages and menu warnings are now vertically centered on the screen
+* Intro scrolling animation will always take 1.15 seconds, regardless of screen resolution
+* Intro scrolling animation is now skippable by pressing Enter or Esc, instead of being an eolconf setting
+* Background menu balls start off centered in the screen
+* Palette is processed as a 24-bit color instead of an 18-bit color, slightly improving color accuracy
+* Maximum number of displayed levels/recs in menu increased from 29 to up to 200 for high resolutions
+* Dialog pop-ups are centered on the screen
+* message.inf is no longer required to view error messages, and error messages are now all in English
+* turntime can now be configured
+* You can now type more non-letter symbols in game menus, like saving a replay or level named `!cov!`
+* Save play is enabled for internal 55, More Levels
+* Key repeat now works in menu so you can hold arrow down to go down or a to save many a.rec
+* Numpad NumLock state is now respected: navigation when NumLock is off, digit input when on
+* Bike controls configured to numpad keys now work regardless of NumLock state
+* You can now use mouse scroll wheel to navigate the menu
+* Mouse scroll now works in the editor for selecting level, lgr and pictures
+* Elma now saves State.dat when you change options
+* You can now f1-p in editor (same as f1-enter but in editor)
+* You can now change what LGR to use as the default from inside the options menu
+* Replays recorded with f1-enter are now saved into renders/rec_filename folder instead of the root
+* Internal editor allows Start object to be inside the ground
+* Improved lgr and level loading speeds
+* New setting to enable access to all internal levels without requiring them to be finished
+* Minimap opacity now can be configured from the options menu
+* Total time is now shown in the internal level list
+* You can now filter the options menu to find options
+
+## Minor Bug Fixes
+* Enforce lowercase LGR filenames to fix loading issues on case-sensitive filesystems
+* Foreground grass was accidentally inefficiently calculated, causing increased load time
+* Internal editor's Save As dialog box could cause buffer overflows
+* Internal editor's Save As would sometimes overwrite old files without giving a warning
+* Level description in internal editor is properly centered
+* Internal editor marks a level as changed if the case of the level description is changed
+* Pictures named "aaccbbdd" could prevent internal editor tooltip from properly updating
+* Show dialog if state.dat is inaccessible when updating top10 in an internal or merging state.dat
+* Background menu balls would sometimes vanish on the "Please do not distribute" screen
+* Improve some slightly buggy/inconsistent mouse click behaviour in internal editor
+* Red helmet animation will no longer skip frames after the intro scrolling animation
+* In internal editor, improve mouse lag and fix bug where mouse cursor would sometimes leave visual artifacts when left-clicking in empty space
+* Sometimes there was a missing pixel in the internal editor where two lines touch each other
+* The 3 timers (best time, flag tag time, current time) are now properly centered on screen
+* Fix bike flickering at high zoom
+* Fix some minor bike jitters in replay playback when bike or wheel rotates past an angle of 0 degrees (upright position)
+* Fix bike/wheel jitters in replay playback in the first 2 frames of the replay
+* Fixed a bug where a replay named a.rec.rec could not be played by elma
+* Some minor grammatical or spelling mistakes are fixed
+* When replay randomizer is unable to file a level file, Escing goes back to the Replay menu instead of jumping all the way back to Main menu
+* Apples and flowers now maintain correct bobbing animation when the view zoom level changes.
+* Pictures extremely out of bounds to the far left or right will no longer prevent other pictures and textures from being rendered
+* Extremely vertical grass polygon lines could crash, especially at high zoom
+* Replay animations now rewind correctly and apples get restored
+* Out-of-bounds grass and masks no longer cause a hard crash
+* You can no longer create a player with a duplicate name
+* Warning instead of crash if you reach max number of players in state.dat
+
+## Removed Legacy Features
+* It is no longer possible to upgrade from across.res to elma.res
+* Readme.txt is no longer autogenerated
+* noretrac.inf (software backbuffer) is no longer supported
+* fordit.inf (invert volt buttons) is no longer supported
+* nemmem.inf (Across memory check) is no longer supported
+* files.inf (files are read from ../files, instead of elma.res) is no longer supported
+* Debug code to generate elma.res/desclist.txt is removed
+* Level files are always unlocked, and you can no longer Save Lock
+* 1997 Action SuperCross debug message removed from Save Play

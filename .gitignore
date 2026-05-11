@@ -1,0 +1,4 @@
+build
+.env.local
+.clangd
+node_modules

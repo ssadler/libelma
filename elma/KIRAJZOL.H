@@ -1,0 +1,33 @@
+#ifndef KIRAJZOL_H
+#define KIRAJZOL_H
+
+#include "physics_init.h"
+#include "simulation.h"
+
+class pic8;
+struct valtozok;
+struct camera;
+
+extern int Voltkilogas; // Csak tesztelesre
+
+// Annak eldontesere, hogy kirajzolando doboz nem log-e ki:
+// peldaul: Hatarx1 = 2.0, Hatarx2 = 318.0 (resetkirajzol tolti ki):
+extern double Hatarx1, Hatarx2, Hatary1, Hatary2;
+
+extern int Cxsize, Cysize; // Belso kep meretei
+
+extern int Kitoltestmegrak;
+// Es ennyire toltjuk:
+extern int Kitoltestmegrakkezd;
+
+void init_renderer();
+
+void novelkepmeret();
+void csokkentkepmeret();
+
+void kirajzol320(double t, valtozok* pvalt1, valtozok* pvalt2, int viewki1, int timeki1,
+                 int viewki2, int timeki2, camera& current_camera, motorst* motor,
+                 std::vector<Simulation*>& shadows
+                 );
+
+#endif

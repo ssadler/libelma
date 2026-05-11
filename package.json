@@ -1,0 +1,18 @@
+{
+  "name": "libelma-saveload",
+  "version": "1.0.0",
+  "main": "src/main.ts",
+  "outFile": "./main.js",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "esbuild": "^0.28.0",
+    "node-addon-api": "^8.7.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.4.4"
+  },
+  "dependencies": {
+    "glob": "^13.0.6",
+    "nodegl": "^1.2.0"
+  }
+}

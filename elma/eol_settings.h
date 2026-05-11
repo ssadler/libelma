@@ -1,0 +1,168 @@
+#ifndef EOL_SETTINGS
+#define EOL_SETTINGS
+
+#include "platform_impl.h"
+#include <directinput/scancodes.h>
+#include <string>
+
+class state;
+
+enum class MapAlignment { None, Left, Middle, Right };
+enum class RendererType { Software, OpenGL, OpenGLFast };
+enum class FullscreenMode { Windowed, Fullscreen, FullscreenDesktop, Flex };
+
+template <typename T> struct Default {
+    T value;
+    T def;
+
+    constexpr Default(T default_value)
+        : value(default_value),
+          def(default_value) {}
+
+    operator T() const;
+    Default& operator=(T v);
+    void reset();
+};
+
+template <typename T> struct Clamp {
+    T value;
+    T min;
+    T def;
+    T max;
+
+    constexpr Clamp(T min_val, T def_val, T max_val)
+        : value(def_val),
+          min(min_val),
+          def(def_val),
+          max(max_val) {}
+
+    operator T() const;
+    Clamp& operator=(T v);
+    void reset();
+};
+
+// Declares/defines getter/setter/default for a field of `eol_settings`.
+// For a field:
+//   int foo;
+// Expands into:
+//   int foo() const { return foo_; }
+//   void set_foo(int);
+//   int foo_default() const { return foo_.def; }
+#define DECLARE_FIELD_FUNCS(name)                                                                  \
+    decltype(eol_settings::name##_.value) name() const { return name##_; }                         \
+    void set_##name(decltype(eol_settings::name##_.value));                                        \
+    decltype(eol_settings::name##_.value) name##_default() const { return name##_.def; }
+
+class eol_settings {
+    Clamp<int> screen_width_{640, 1920, 10000};
+    Clamp<int> screen_height_{480, 1200, 10000};
+    Default<bool> pictures_in_background_{false};
+    Default<bool> center_camera_{false};
+    Default<bool> center_map_{false};
+    Default<MapAlignment> map_alignment_{MapAlignment::None};
+    Default<RendererType> renderer_{RendererType::Software};
+    Default<FullscreenMode> fullscreen_{FullscreenMode::Windowed};
+    Clamp<double> zoom_{0.025, 1.0, 9.0};
+    Clamp<double> minimap_zoom_{0.25, 1.0, 3.0};
+    Default<bool> zoom_textures_{true};
+    Default<bool> zoom_grass_{true};
+    Clamp<double> turn_time_{0.0, 0.35, 0.35};
+    Default<bool> lctrl_search_{false};
+    Default<DikScancode> alovolt_key_player_a_{DIK_UNKNOWN};
+    Default<DikScancode> alovolt_key_player_b_{DIK_UNKNOWN};
+    Default<DikScancode> brake_alias_key_player_a_{DIK_UNKNOWN};
+    Default<DikScancode> brake_alias_key_player_b_{DIK_UNKNOWN};
+    Default<DikScancode> one_frame_brake_key_player_a_{DIK_UNKNOWN};
+    Default<DikScancode> one_frame_brake_key_player_b_{DIK_UNKNOWN};
+    Default<DikScancode> escape_alias_key_{DIK_UNKNOWN};
+    Default<DikScancode> replay_fast_2x_key_{DIK_UP};
+    Default<DikScancode> replay_fast_4x_key_{DIK_RIGHT};
+    Default<DikScancode> replay_fast_8x_key_{DIK_PRIOR};
+    Default<DikScancode> replay_slow_2x_key_{DIK_DOWN};
+    Default<DikScancode> replay_slow_4x_key_{DIK_NEXT};
+    Default<DikScancode> replay_pause_key_{DIK_SPACE};
+    Default<DikScancode> replay_rewind_key_{DIK_LEFT};
+    Default<std::string> default_lgr_name_{"default"};
+    Default<bool> show_last_apple_time_{true};
+    Default<bool> show_gravity_arrows_{true};
+    Clamp<int> recording_fps_{30, 30, 120};
+    Default<bool> show_demo_menu_{true};
+    Default<bool> show_help_menu_{true};
+    Default<bool> show_best_times_menu_{true};
+    Default<bool> still_objects_{false};
+    Default<bool> all_internals_accessible_{false};
+    Default<bool> show_total_time_{true};
+    Clamp<int> minimap_width_{140, 140, 420};
+    Clamp<int> minimap_height_{70, 70, 210};
+    Clamp<int> minimap_opacity_{25, 100, 100};
+    Clamp<int> chat_lines_{1, 10, 50};
+    Default<bool> cripple_no_brake_{false};
+    Default<bool> cripple_no_throttle_{false};
+    Default<bool> cripple_always_throttle_{false};
+    Default<bool> cripple_no_turn_{false};
+    Default<bool> cripple_no_volt_{false};
+    Default<bool> cripple_one_turn_{false};
+    Default<bool> cripple_drunk_{false};
+
+  public:
+    static void read_settings();
+    static void write_settings();
+    static void sync_controls_to_state(state* s);
+    static void sync_controls_from_state(state* s);
+
+    DECLARE_FIELD_FUNCS(screen_width);
+    DECLARE_FIELD_FUNCS(screen_height);
+    DECLARE_FIELD_FUNCS(pictures_in_background);
+    DECLARE_FIELD_FUNCS(center_camera);
+    DECLARE_FIELD_FUNCS(center_map);
+    DECLARE_FIELD_FUNCS(map_alignment);
+    DECLARE_FIELD_FUNCS(renderer);
+    DECLARE_FIELD_FUNCS(fullscreen);
+    DECLARE_FIELD_FUNCS(zoom);
+    DECLARE_FIELD_FUNCS(minimap_zoom);
+    DECLARE_FIELD_FUNCS(zoom_textures);
+    DECLARE_FIELD_FUNCS(zoom_grass);
+    DECLARE_FIELD_FUNCS(turn_time);
+    DECLARE_FIELD_FUNCS(lctrl_search);
+    DECLARE_FIELD_FUNCS(alovolt_key_player_a);
+    DECLARE_FIELD_FUNCS(alovolt_key_player_b);
+    DECLARE_FIELD_FUNCS(brake_alias_key_player_a);
+    DECLARE_FIELD_FUNCS(brake_alias_key_player_b);
+    DECLARE_FIELD_FUNCS(one_frame_brake_key_player_a);
+    DECLARE_FIELD_FUNCS(one_frame_brake_key_player_b);
+    DECLARE_FIELD_FUNCS(escape_alias_key);
+    DECLARE_FIELD_FUNCS(replay_fast_2x_key);
+    DECLARE_FIELD_FUNCS(replay_fast_4x_key);
+    DECLARE_FIELD_FUNCS(replay_fast_8x_key);
+    DECLARE_FIELD_FUNCS(replay_slow_2x_key);
+    DECLARE_FIELD_FUNCS(replay_slow_4x_key);
+    DECLARE_FIELD_FUNCS(replay_pause_key);
+    DECLARE_FIELD_FUNCS(replay_rewind_key);
+    DECLARE_FIELD_FUNCS(default_lgr_name);
+    DECLARE_FIELD_FUNCS(show_last_apple_time);
+    DECLARE_FIELD_FUNCS(show_gravity_arrows);
+    DECLARE_FIELD_FUNCS(recording_fps);
+    DECLARE_FIELD_FUNCS(show_demo_menu);
+    DECLARE_FIELD_FUNCS(show_help_menu);
+    DECLARE_FIELD_FUNCS(show_best_times_menu);
+    DECLARE_FIELD_FUNCS(still_objects);
+    DECLARE_FIELD_FUNCS(all_internals_accessible);
+    DECLARE_FIELD_FUNCS(show_total_time);
+    DECLARE_FIELD_FUNCS(minimap_width);
+    DECLARE_FIELD_FUNCS(minimap_height);
+    DECLARE_FIELD_FUNCS(minimap_opacity);
+    DECLARE_FIELD_FUNCS(chat_lines);
+    DECLARE_FIELD_FUNCS(cripple_no_brake);
+    DECLARE_FIELD_FUNCS(cripple_no_throttle);
+    DECLARE_FIELD_FUNCS(cripple_always_throttle);
+    DECLARE_FIELD_FUNCS(cripple_no_turn);
+    DECLARE_FIELD_FUNCS(cripple_no_volt);
+    DECLARE_FIELD_FUNCS(cripple_one_turn);
+    DECLARE_FIELD_FUNCS(cripple_drunk);
+};
+
+#undef DECLARE_FIELD_FUNCS
+
+extern eol_settings* EolSettings;
+
+#endif

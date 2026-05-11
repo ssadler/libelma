@@ -1,0 +1,196 @@
+#include "abc8.h"
+#include "main.h"
+#include "menu_pic.h"
+#include "pic8.h"
+#include "qopen.h"
+#include <cstring>
+#include <string>
+
+static void close_file(FILE* h, bool res_file) {
+    if (res_file) {
+        qclose(h);
+    } else {
+        fclose(h);
+    }
+}
+
+abc8::abc8(const char* filename) {
+    spacing = 0;
+    ppsprite = nullptr;
+    y_offset = nullptr;
+    ppsprite = new ptrpic8[256];
+    if (!ppsprite) {
+        external_error("memory");
+    }
+    for (int i = 0; i < 256; i++) {
+        ppsprite[i] = nullptr;
+    }
+    y_offset = new short[256];
+    if (!y_offset) {
+        external_error("memory");
+    }
+    for (int i = 0; i < 256; i++) {
+        y_offset[i] = 0;
+    }
+
+    bool res_file = false;
+    // First check the resources folder
+    std::string path("resources/");
+    path.append(filename);
+    FILE* h = fopen(path.c_str(), "rb");
+    if (!h) {
+        // If not found, check elma.res
+        h = qopen(filename, "rb");
+        res_file = true;
+    }
+    if (!h) {
+        internal_error(std::string("Could not open abc8 file:: ") + filename);
+    }
+    char tmp[20];
+    if (fread(tmp, 4, 1, h) != 1) {
+        internal_error(std::string("Could not read abc8 file: ") + filename);
+    }
+    if (strcmp(tmp, "RA1") != 0) {
+        internal_error(std::string("Invalid abc8 file header: ") + filename);
+    }
+    short sprite_count = 0;
+    if (fread(&sprite_count, 2, 1, h) != 1) {
+        internal_error(std::string("Could not read abc8 file: ") + filename);
+    }
+    if (sprite_count <= 0 || sprite_count > 256) {
+        internal_error(std::string("Invalid codepoint count for abc8 file: ") + filename);
+    }
+    for (int i = 0; i < sprite_count; i++) {
+        if (fread(tmp, 7, 1, h) != 1) {
+            internal_error(std::string("Could not read abc8 file: ") + filename);
+        }
+        if (strcmp(tmp, "EGYMIX") != 0) {
+            internal_error(std::string("Invalid sprite header in abc8 file: ") + filename);
+        }
+        unsigned char c = -1;
+        if (fread(&c, 1, 1, h) != 1) {
+            internal_error(std::string("Could not read abc8 file: ") + filename);
+        }
+        if (fread(&y_offset[c], 2, 1, h) != 1) {
+            internal_error(std::string("Could not read abc8 file: ") + filename);
+        }
+        if (ppsprite[c]) {
+            internal_error(std::string("Duplicate codepoint in abc8 file: ") + filename);
+        }
+        ppsprite[c] = new pic8(".spr", h);
+    }
+
+    close_file(h, res_file);
+}
+
+abc8::~abc8() {
+    if (ppsprite) {
+        for (int i = 0; i < 256; i++) {
+            if (ppsprite[i]) {
+                delete ppsprite[i];
+                ppsprite[i] = nullptr;
+            }
+        }
+        delete ppsprite;
+        ppsprite = nullptr;
+    }
+    if (y_offset) {
+        delete y_offset;
+        y_offset = nullptr;
+    }
+}
+
+static int SpaceWidth = 5;
+static int SpaceWidthMenu = 10;
+
+void abc8::write(pic8* dest, int x, int y, const char* text) {
+#ifdef DEBUG
+    const char* error_text = text;
+#endif
+    while (*text) {
+        int index = (unsigned char)*text;
+        // Space character is hardcoded
+        if (!ppsprite[index]) {
+            if (index == ' ') {
+                if (this == MenuFont) {
+                    x += SpaceWidthMenu;
+                } else {
+                    x += SpaceWidth;
+                }
+                text++;
+                continue;
+            }
+#ifdef DEBUG
+            printf("Missing codepoint %c (0x%02X) in abc8 text: \"%s\"\n", index, index,
+                   error_text);
+#endif
+            text++;
+            continue;
+        }
+        blit8(dest, ppsprite[index], x, y + y_offset[index]);
+        x += spacing + ppsprite[index]->get_width();
+
+        text++;
+    }
+}
+
+int abc8::len(const char* text) {
+#ifdef DEBUG
+    const char* error_text = text;
+#endif
+    int width = 0;
+    while (*text) {
+        int index = (unsigned char)*text;
+        // Space character is hardcoded
+        if (!ppsprite[index]) {
+            if (index == ' ') {
+                if (this == MenuFont) {
+                    width += SpaceWidthMenu;
+                } else {
+                    width += SpaceWidth;
+                }
+                text++;
+                continue;
+            }
+#ifdef DEBUG
+            printf("Missing codepoint %c (0x%02X) in abc8 text: \"%s\"\n", index, index,
+                   error_text);
+#endif
+            text++;
+            continue;
+        }
+        width += spacing + ppsprite[index]->get_width();
+
+        text++;
+    }
+    return width;
+}
+
+void abc8::set_spacing(int new_spacing) { spacing = new_spacing; }
+
+bool abc8::has_char(unsigned char c) const {
+    // Space is always supported (handled specially in write)
+    if (c == ' ') {
+        return true;
+    }
+    return ppsprite && ppsprite[c] != nullptr;
+}
+
+void abc8::write_centered(pic8* dest, int x, int y, const char* text) {
+    int width = len(text);
+    write(dest, x - width / 2, y, text);
+}
+
+void abc8::write_right_align(pic8* dest, int x, int y, const char* text) {
+    int width = len(text);
+    write(dest, x - width, y, text);
+}
+
+#ifdef DEBUG
+int abc8::line_height() const {
+    if (line_height_ == 0) {
+        internal_error("line height not set!");
+    }
+    return line_height_;
+}
+#endif

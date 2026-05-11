@@ -1,0 +1,141 @@
+project('elma', 'c', 'cpp', version: '1.4', meson_version: '>=1.2.0', default_options: ['cpp_std=c++20'])
+
+add_project_arguments('-DELMA_VERSION="@0@"'.format(meson.project_version()), language: 'cpp')
+
+if get_option('buildtype') == 'debug' or get_option('buildtype') == 'debugoptimized'
+    add_project_arguments('-DDEBUG', language: 'cpp')
+endif
+
+if get_option('profile_performance') == true
+    add_project_arguments('-DPROFILE_PERFORMANCE', language: 'cpp')
+endif
+
+elma_sources = files(
+    'abc8.cpp',
+    'physics_init.cpp',
+    'anim.cpp',
+    'physics_move.cpp',
+    'timer.cpp',
+    'affine_pic_render.cpp',
+    'D_PIC.CPP',
+    'canvas.cpp',
+    #'editor_dialog.cpp',
+    #'editor_canvas.cpp',
+    #'editor_help.cpp',
+    #'EDITTOLT.CPP',
+    #'EDITTOOL.CPP',
+    'EDITUJ.CPP',
+    #'editor_topology.cpp',
+    'flagtag.cpp',
+    'ball_handler.cpp',
+    'ball.cpp',
+    'ball_collision.cpp',
+    'polygon.cpp',
+    'wav.cpp',
+    'KIRAJ320.CPP',
+    'affine_pic.cpp',
+    'grass.cpp',
+    'platform_utils.cpp',
+    'LEJATSZO.CPP',
+    'physics_forces.cpp',
+    'lgr.cpp',
+    'level_load.cpp',
+    'main.cpp',
+    'menu_pic.cpp',
+    'pic8.cpp',
+    'piclist.cpp',
+    'qopen.cpp',
+    'recorder.cpp',
+    'platform_sdl.cpp',
+    'platform_sdl_keyboard.cpp',
+    'src/eol/status_messages.cpp',
+    'state.cpp',
+    'segments.cpp',
+    'physics_collision.cpp',
+    'level.cpp',
+    'vect2.cpp',
+    'eol_settings.cpp',
+    'sound_engine.cpp',
+    'keys.cpp',
+    'fs_utils.cpp',
+    'object.cpp',
+    'src/renderer/object_overlay.cpp',
+    'sprite.cpp',
+    'gl_renderer.cpp',
+    'gl_common.cpp',
+    'gl_tas.cpp',
+    'gl_canvas.cpp',
+    'gl_kuski.cpp',
+    'gl_objects.cpp',
+    'gl_sprites.cpp',
+    'gl_grass.cpp',
+    'gl_extra.cpp',
+    'gl_shaders.cpp',
+    'gl_minimap.cpp',
+    'src/debug/profiler.cpp',
+    'src/eol/console.cpp',
+    'src/eol/eol_table.cpp',
+    'src/util/util.cpp',
+    'src/glad/glad.c',
+    'simulation.cpp',
+    'lib.cpp',
+    'lib_gameloop.cpp',
+)
+
+inc = include_directories('include')
+
+cpp = meson.get_compiler('cpp')
+link_args = []
+cpp_args = []
+
+# Required for nlohmann_json on Apple clang < 12
+if cpp.get_id() == 'clang' and cpp.version().version_compare('<12.0')
+    add_project_arguments('-DJSON_HAS_CPP_17', language: 'cpp')
+endif
+
+win_subsystem = 'windows'
+if cpp.get_id() == 'msvc'
+    if get_option('buildtype') == 'debug' or get_option('buildtype') == 'debugoptimized' or get_option('profile_performance') == true
+        # Allows printf when debugging
+        win_subsystem = 'console'
+    endif
+
+    if win_subsystem == 'windows'
+        # Override windows subsystem entrypoint to main instead of WinMain
+        link_args += ['/ENTRY:mainCRTStartup']
+    endif
+else
+    cpp_args += ['-Wno-deprecated-declarations', '-Wunreachable-code']
+endif
+
+sdl2_dep = dependency('sdl2',
+    static: build_machine.system() == 'windows' or get_option('static_sdl'),
+    default_options: {
+        'test': false,
+        'with_main': false,
+    }
+)
+
+gl_dep = dependency('gl', required: true)
+
+nlohmann_json_dep = dependency('nlohmann_json')
+
+#executable(
+#    'elma',
+#    elma_sources,
+#    include_directories: inc,
+#    cpp_args: cpp_args,
+#    link_args: link_args,
+#    dependencies: [nlohmann_json_dep, gl_dep, sdl2_dep],
+#    win_subsystem: win_subsystem,
+#)
+
+library(
+    'elma',
+    elma_sources,
+    include_directories: [inc],
+    cpp_args: cpp_args,
+    link_args: link_args,
+    dependencies: [nlohmann_json_dep, gl_dep, sdl2_dep],
+    #win_subsystem: win_subsystem,
+)

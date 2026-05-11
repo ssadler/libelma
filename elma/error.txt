@@ -1,0 +1,2 @@
+External error encountered:
+Missing file!: elma.res
